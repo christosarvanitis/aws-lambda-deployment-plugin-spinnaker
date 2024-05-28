@@ -16,7 +16,7 @@
 
 package com.amazon.aws.spinnaker.plugin.lambda.agent;
 
-import com.amazon.aws.spinnaker.plugin.lambda.LambdaService;
+import com.amazon.aws.spinnaker.plugin.lambda.LambdaCustomService;
 import com.amazonaws.services.lambda.model.ResourceNotFoundException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.CaseFormat;
@@ -37,7 +37,7 @@ import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandType;
 import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfiguration;
 import com.netflix.spinnaker.clouddriver.lambda.cache.Keys;
-import com.netflix.spinnaker.clouddriver.lambda.service.config.LambdaServiceConfig;
+import com.netflix.spinnaker.config.LambdaServiceConfig;
 import com.netflix.spinnaker.kork.exceptions.SpinnakerException;
 import lombok.extern.slf4j.Slf4j;
 
@@ -56,7 +56,7 @@ import static com.netflix.spinnaker.clouddriver.lambda.cache.Keys.Namespace.LAMB
 import static java.util.stream.Collectors.toSet;
 
 @Slf4j
-public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandAgent {
+public class LambdaCustomCachingAgent implements CachingAgent, AccountAware, OnDemandAgent {
   private static final Set<AgentDataType> types =
       new HashSet<>() {
         {
@@ -70,9 +70,9 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
   private OnDemandMetricsSupport metricsSupport;
   private final Registry registry;
   private final Clock clock = Clock.systemDefaultZone();
-  private LambdaService lambdaService;
+  private LambdaCustomService lambdaService;
 
-  LambdaCachingAgent(
+  LambdaCustomCachingAgent(
       ObjectMapper objectMapper,
       AmazonClientProvider amazonClientProvider,
       NetflixAmazonCredentials account,
@@ -88,7 +88,7 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
             this,
             AmazonCloudProvider.ID + ":" + AmazonCloudProvider.ID + ":" + OnDemandType.Function);
     this.lambdaService =
-        new LambdaService(amazonClientProvider, account, region, objectMapper, lambdaServiceConfig);
+        new LambdaCustomService(amazonClientProvider, account, region, objectMapper, lambdaServiceConfig);
   }
 
   @Override
@@ -98,7 +98,7 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
 
   @Override
   public String getAgentType() {
-    return account.getName() + "/" + region + "/" + LambdaCachingAgent.class.getSimpleName();
+    return account.getName() + "/" + region + "/" + LambdaCustomCachingAgent.class.getSimpleName();
   }
 
   @Override

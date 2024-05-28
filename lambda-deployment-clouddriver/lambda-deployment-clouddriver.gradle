@@ -52,19 +52,19 @@ dependencies {
 
   testImplementation group: 'io.spinnaker.clouddriver', name: 'clouddriver-api'
   testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-api'
-  testCompile("com.netflix.awsobjectmapper:awsobjectmapper")
-  testCompile group: 'com.github.tomakehurst', name: 'wiremock-jre8', version: '2.29.1'
-  testCompile group: 'org.mockito', name: 'mockito-core'
-  testCompile (group: 'io.spinnaker.clouddriver', name: 'clouddriver-lambda')
-  testCompile (group: 'io.spinnaker.clouddriver', name: 'clouddriver-aws')
-  testCompile (group: 'io.spinnaker.clouddriver', name: 'clouddriver-core')
-  testCompile (group: 'io.spinnaker.clouddriver', name: 'clouddriver-security')
-  testCompile group: 'org.mockito', name: 'mockito-junit-jupiter'
-  testCompile group: 'org.projectlombok', name: 'lombok'
+  testImplementation("com.netflix.awsobjectmapper:awsobjectmapper")
+  testImplementation group: 'com.github.tomakehurst', name: 'wiremock-jre8', version: '2.29.1'
+  testImplementation group: 'org.mockito', name: 'mockito-core'
+  testImplementation (group: 'io.spinnaker.clouddriver', name: 'clouddriver-lambda')
+  testImplementation (group: 'io.spinnaker.clouddriver', name: 'clouddriver-aws')
+  testImplementation (group: 'io.spinnaker.clouddriver', name: 'clouddriver-core')
+  testImplementation (group: 'io.spinnaker.clouddriver', name: 'clouddriver-security')
+  testImplementation group: 'org.mockito', name: 'mockito-junit-jupiter'
+  testImplementation group: 'org.projectlombok', name: 'lombok'
 
-  testRuntime "org.junit.jupiter:junit-jupiter-engine"
-  testRuntime "org.junit.platform:junit-platform-launcher"
-  testRuntime "org.junit.platform:junit-platform-commons"
+  testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
+  testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+  testRuntimeOnly "org.junit.platform:junit-platform-commons"
 }
 
 tasks.withType(Test) {
