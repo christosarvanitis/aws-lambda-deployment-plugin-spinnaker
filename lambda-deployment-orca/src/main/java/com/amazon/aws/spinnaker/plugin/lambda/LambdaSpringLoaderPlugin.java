@@ -17,30 +17,13 @@
 
 package com.amazon.aws.spinnaker.plugin.lambda;
 
-import com.amazon.aws.spinnaker.plugin.lambda.delete.LambdaDeleteStage;
-import com.amazon.aws.spinnaker.plugin.lambda.delete.LambdaDeleteTask;
-import com.amazon.aws.spinnaker.plugin.lambda.delete.LambdaDeleteVerificationTask;
-import com.amazon.aws.spinnaker.plugin.lambda.eventconfig.LambdaUpdateEventConfigurationTask;
-import com.amazon.aws.spinnaker.plugin.lambda.invoke.LambdaInvokeStage;
-import com.amazon.aws.spinnaker.plugin.lambda.invoke.LambdaInvokeTask;
-import com.amazon.aws.spinnaker.plugin.lambda.invoke.LambdaInvokeVerificationTask;
-import com.amazon.aws.spinnaker.plugin.lambda.traffic.*;
-import com.amazon.aws.spinnaker.plugin.lambda.updatecode.LambdaUpdateCodeStage;
-import com.amazon.aws.spinnaker.plugin.lambda.updatecode.LambdaWaitForCacheCodeUpdateTask;
-import com.amazon.aws.spinnaker.plugin.lambda.upsert.*;
-import com.amazon.aws.spinnaker.plugin.lambda.utils.LambdaCloudDriverUtils;
-import com.amazon.aws.spinnaker.plugin.lambda.verify.LambdaCacheRefreshTask;
-import com.amazon.aws.spinnaker.plugin.lambda.verify.LambdaVerificationTask;
+import com.netflix.spinnaker.kork.plugins.api.spring.SpringLoader;
 import com.netflix.spinnaker.kork.plugins.api.spring.SpringLoaderPlugin;
-import org.apache.commons.lang3.tuple.Pair;
 import org.pf4j.PluginWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.BeanDefinitionStoreException;
-import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 
-import java.util.Arrays;
 import java.util.List;
 
 public class LambdaSpringLoaderPlugin extends SpringLoaderPlugin {
@@ -49,64 +32,36 @@ public class LambdaSpringLoaderPlugin extends SpringLoaderPlugin {
         super(wrapper);
     }
 
+    private static final String SPRING_LOADER_BEAN_NAME = String.format("Aws.LambdaDeploymentPlugin.%s", SpringLoader.class.getName());
+
+    private static final List<String> ORCA_BEANS_DEPENDING_ON_PLUGIN = List.of(
+            "dynamicStageResolver"
+    );
+
     @Override
-    public void registerBeanDefinitions(BeanDefinitionRegistry registry) {
-        List<Pair<String, Class>> beanList =  Arrays.asList(
-                Pair.of("lambdaPluginConfig", Config.class),
-                Pair.of("Aws.LambdaDeploymentStage", LambdaDeploymentStage.class),
-                Pair.of("lambdaCloudDriverUtils", LambdaCloudDriverUtils.class),
-                Pair.of("lambdaCreationTask", LambdaCreateTask.class),
-                Pair.of("lambdaUpdateCodeTask", LambdaUpdateCodeTask.class),
-                Pair.of("lambdaUpdateConfigurationTask", LambdaUpdateConfigurationTask.class),
-                Pair.of("lambdaVerificationTask", LambdaVerificationTask.class),
-                Pair.of("lambdaDeleteTask", LambdaDeleteTask.class),
-                Pair.of("lambdaPublishVersionTask", LambdaPublishVersionTask.class),
-                Pair.of("lambdaDeleteVerificationTask", LambdaDeleteVerificationTask.class),
-                Pair.of("Aws.LambdaDeleteStage", LambdaDeleteStage.class),
-                Pair.of("lambdaTrafficUpdateTask", LambdaTrafficUpdateTask.class),
-                Pair.of("LambdaWaitToStabilizeTask", LambdaWaitToStabilizeTask.class),
-                Pair.of("lambdaUpdateAliasesTask",LambdaUpdateAliasesTask.class),
-                Pair.of("lambdaCacheRefreshTask", LambdaCacheRefreshTask.class),
-                Pair.of("lambdaWaitForCachePublishTask", LambdaWaitForCachePublishTask.class),
-                Pair.of("lambdaOutputTask", LambdaOutputTask.class),
-                Pair.of("lambdaPutConcurrencyTask", LambdaPutConcurrencyTask.class),
-                Pair.of("lambdaDeleteConcurrencyTask", LambdaDeleteConcurrencyTask.class),
-                Pair.of("lambdaTrafficUpdateVerificationTask", LambdaTrafficUpdateVerificationTask.class),
-                Pair.of("lambdaUpdateEventConfigurationTask", LambdaUpdateEventConfigurationTask.class),
-                Pair.of("trafficUpdateStrategyInjector", TrafficUpdateStrategyInjector.class),
-                Pair.of("simpleStrategy", SimpleDeploymentStrategy.class),
-                Pair.of("weightedStrategy", WeightedDeploymentStrategy.class),
-                Pair.of("blueGreenStrategy", BlueGreenDeploymentStrategy.class),
-                Pair.of("Aws.LambdaInvokeStage", LambdaInvokeStage.class),
-                Pair.of("lambdaInvokeTask", LambdaInvokeTask.class),
-                Pair.of("lambdaInvokeVerifyTask", LambdaInvokeVerificationTask.class),
-                Pair.of("Aws.LambdaTrafficShaper", LambdaTrafficRoutingStage.class),
-                Pair.of("Aws.LambdaUpdateCodeStage", LambdaUpdateCodeStage.class),
-                Pair.of("lambdaWaitForCacheCodeUpdateTask", LambdaWaitForCacheCodeUpdateTask.class)
-        );
-        beanList.forEach( curr -> {
-            BeanDefinition lazyLoadCredentialsRepositoryDefinition = primaryBeanDefinitionFor(curr.getRight());
-            try {
-                registry.registerBeanDefinition(curr.getLeft(), lazyLoadCredentialsRepositoryDefinition);
-            } catch (BeanDefinitionStoreException e) {
-                log.error("Could not register bean {}", lazyLoadCredentialsRepositoryDefinition.getBeanClassName());
-                throw new RuntimeException(e);
-            }
-        });
-        super.registerBeanDefinitions(registry);
+    public List<String> getPackagesToScan() {
+        return List.of("com.amazon.aws.spinnaker.plugin.lambda");
     }
 
-    /**
-     * Specify plugin packages to scan for beans.
-     */
-    public List<String> getPackagesToScan() {
-        return  Arrays.asList("com.amazon.aws.spinnaker.plugin.lambda",
-                              "com.amazon.aws.spinnaker.plugin.lambda.delete",
-                              "com.amazon.aws.spinnaker.plugin.lambda.eventconfig",
-                              "com.amazon.aws.spinnaker.plugin.lambda.upsert",
-                              "com.amazon.aws.spinnaker.plugin.lambda.utils",
-                              "com.amazon.aws.spinnaker.plugin.lambda.verify",
-                              "com.amazon.aws.spinnaker.plugin.lambda.traffic",
-                              "com.amazon.aws.spinnaker.plugins.lambda.updatecode");
+    public void start() {
+        logger.info("Aws.LambdaDeploymentPlugin.start()");
     }
+
+    public void stop() {
+        logger.info("Aws.LambdaDeploymentPlugin.stop()");
+    }
+
+    @Override
+    public void registerBeanDefinitions(BeanDefinitionRegistry registry) {
+        super.registerBeanDefinitions(registry);
+
+        ORCA_BEANS_DEPENDING_ON_PLUGIN.forEach(bean -> {
+            if (registry.containsBeanDefinition(bean)) {
+                registry
+                        .getBeanDefinition(bean)
+                        .setDependsOn(SPRING_LOADER_BEAN_NAME);
+            }
+        });
+    }
+
 }
