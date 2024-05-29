@@ -27,6 +27,7 @@ import com.netflix.spinnaker.config.LambdaServiceConfig;
 import com.netflix.spinnaker.credentials.Credentials;
 import com.netflix.spinnaker.kork.plugins.api.spring.ExposeToApp;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -36,6 +37,7 @@ import java.util.List;
 
 @Component
 @ExposeToApp
+@Primary
 public class LambdaCustomAgentProvider extends LambdaAgentProvider {
   private final ObjectMapper objectMapper;
   private final AmazonClientProvider amazonClientProvider;
