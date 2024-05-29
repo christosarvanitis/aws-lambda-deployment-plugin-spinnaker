@@ -37,7 +37,7 @@ dynamic-stage-resolver:
 
 
 
-# This section is deprecated since Lambda plugin has moved to OSS
+# Bellow section is deprecated since Lambda plugin has moved to OSS
 
 
 ## Spinnaker Plugin for AWS Lambda Deployment 
