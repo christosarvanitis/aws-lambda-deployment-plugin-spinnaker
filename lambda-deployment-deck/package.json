@@ -12,12 +12,13 @@
     "proxy": "dev-proxy",
     "prettier": "prettier --write 'src/**/*.{js,jsx,ts,tsx,html,css,less,json}'",
     "develop": "npm run clean && run-p watch proxy",
-    "lint": "eslint --ext js,jsx,ts,tsx src"
+    "lint": "eslint --ext js,jsx,ts,tsx src",
+    "prepare": "husky-install"
   },
   "dependencies": {
     "@spinnaker/amazon": "0.0.262",
-    "@spinnaker/pluginsdk": "0.2.3",
-    "@spinnaker/pluginsdk-peerdeps": "0.0.18",
+    "@spinnaker/pluginsdk": "0.3.2",
+    "@spinnaker/pluginsdk-peerdeps": "0.20.0",
     "@spinnaker/presentation": "0.1.0",
     "@types/classnames": "^2.2.10",
     "@types/lodash": "^4.14.159",
@@ -26,7 +27,7 @@
     "@uirouter/core": "6.0.4",
     "@uirouter/react": "1.0.2",
     "bufferutil": "4.0.2",
-    "canvas": "2.6.1",
+    "canvas": "2.8.0",
     "classnames": "^2.2.6",
     "graphql": "15.8.0",
     "lodash": "^4.17.20",
@@ -71,6 +72,9 @@
     "rollup-plugin-visualizer": "5.4.1",
     "shx": "0.3.3",
     "typescript": "4.8.0-dev.20220606"
+  },
+  "devProxy": {
+    "host": "http://spinnaker.local.com:9001/"
   },
   "files": [
     "build/dist"

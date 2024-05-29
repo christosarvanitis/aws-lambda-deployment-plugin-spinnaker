@@ -27,15 +27,57 @@ dynamic-stage-resolver:
 ```
 5. We enable the plugin in Orca profile as normally done for the plugin framework.
 
-### Deck - Not implemented
+### Deck - Migrating OSS Lambda stages to Plugin Components
+In order to migrate the existing Lambda stages to the implementation of the plugin while keeping a backward compatibility:
+
+1. Implement the new Deck stage in the plugin with the type matching the Orca definition. For example for the Orca code:
+```java
+@StageDefinitionBuilder.Aliases({"Aws.LambdaDeploymentStage"})
+public class LambdaDeploymentStage implements StageDefinitionBuilder {
+    private static final Logger logger = LoggerFactory.getLogger(LambdaDeploymentStage.class);
 
 
+    @Override
+    public void taskGraph(@NotNull StageExecution stage, @NotNull TaskNode.Builder builder) {
+        final String stageType = stage.getType();
+        logger.info("LambdaDeploymentCustomStage.taskGraph() stageType: {}", stageType);
+        builder.withTask("lambdaCacheRefreshTask", LambdaCacheRefreshCustomTask.class);
+    }
+}
+```
+- The corresponding Type is `lambdaDeployment` (matching the class name - starting with lowercase & excluding the Stage postfix)
+- The corresponding Alias is `Aws.LambdaDeploymentStage` (As defined in the `@StageDefinitionBuilder.Aliases` annotation)
 
+For Deck we will define the new stage in the plugin as follows:
+```javascript
+export const lambdaDeploymentStage: IStageTypeConfig = {
+    key: 'lambdaDeployment', //Stage Type
+    alias: 'Aws.LambdaDeploymentStage', //The previous stage type or alias to maintain backward compatibility
+    label: `AWS Lambda Deployment`,
+    description: 'Create a Single AWS Lambda Function',
+    component: LambdaDeploymentConfig, // stage config
+    executionDetailsSections: [LambdaDeploymentExecutionDetails, ExecutionDetailsTasks],
+    validateFn: validate,
+};
+```
 
+2. In order to hide from the end user the previous implementation of the OSS for the Stage we need to add the following configuration in the `settings-local.js` of the Deck service:
+```yaml
+settings-local.js: |
+  ...
+  window.spinnakerSettings.hiddenStages= ["Aws.LambdaDeploymentStage"];
+  ...
+```
+The above configuration will hide any stages defined as `type="Aws.LambdaDeploymentStage"` from the UI. However since our new stage 
+definition in the plugin has the alias `Aws.LambdaDeploymentStage` the stage will be visible in the UI with the new implementation of the plugin.
 
+Any new pipeline created after the migration to the new implementation using the plugin will use the new stage type=`lambdaDeployment` and the old pipelines will still use the old stage `type="lambdaDeployment"`.
 
+---
 
+*Original README.md content below*
 
+---
 
 # Bellow section is deprecated since Lambda plugin has moved to OSS
 

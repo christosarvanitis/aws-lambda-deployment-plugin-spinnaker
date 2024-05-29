@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { IDeckPlugin } from '@spinnaker/core';
-import { lambdaDeploymentStage, initialize } from './deployLambda';
+
 import { lambdaDeleteStage } from './deleteLambda';
-import { lambdaRouteStage} from './routeLambda';
-import { lambdaInvokeStage} from './invokeLambda';
-import { lambdaUpdateCodeStage} from "./updateCodeLambda";
+import { initialize, lambdaDeploymentStage } from './deployLambda';
+import { lambdaInvokeStage } from './invokeLambda';
+import { lambdaRouteStage } from './routeLambda';
+import { lambdaUpdateCodeStage } from './updateCodeLambda';
 
 export const plugin: IDeckPlugin = {
   initialize,
-  stages: [lambdaDeploymentStage, lambdaDeleteStage, lambdaRouteStage, lambdaInvokeStage, lambdaUpdateCodeStage],
+  stages: [lambdaDeploymentStage],
 };
