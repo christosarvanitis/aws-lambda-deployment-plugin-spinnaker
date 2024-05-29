@@ -17,46 +17,45 @@
 package com.amazon.aws.spinnaker.plugin.lambda.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.netflix.awsobjectmapper.AmazonObjectMapperConfigurer;
 import com.netflix.spinnaker.cats.agent.Agent;
-import com.netflix.spinnaker.cats.agent.AgentProvider;
-import com.netflix.spinnaker.clouddriver.aws.provider.AwsProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfiguration;
-import com.netflix.spinnaker.clouddriver.lambda.service.config.LambdaServiceConfig;
+import com.netflix.spinnaker.clouddriver.lambda.provider.agent.LambdaAgentProvider;
+import com.netflix.spinnaker.config.LambdaServiceConfig;
 import com.netflix.spinnaker.credentials.Credentials;
 import com.netflix.spinnaker.kork.plugins.api.spring.ExposeToApp;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+
 @Component
 @ExposeToApp
-public class LambdaAgentProvider implements AgentProvider {
+@Primary
+public class LambdaCustomAgentProvider extends LambdaAgentProvider {
   private final ObjectMapper objectMapper;
   private final AmazonClientProvider amazonClientProvider;
   private final LambdaServiceConfig lambdaServiceConfig;
   private final ServiceLimitConfiguration serviceLimitConfiguration;
 
+
   @Autowired
-  public LambdaAgentProvider(
-      AmazonClientProvider amazonClientProvider,
-      LambdaServiceConfig lambdaServiceConfig,
-      ServiceLimitConfiguration serviceLimitConfiguration) {
-    this.objectMapper = AmazonObjectMapperConfigurer.createConfigured();
+  public LambdaCustomAgentProvider(
+          ObjectMapper objectMapper,
+          AmazonClientProvider amazonClientProvider,
+          LambdaServiceConfig lambdaServiceConfig,
+          ServiceLimitConfiguration serviceLimitConfiguration) {
+    super(amazonClientProvider, lambdaServiceConfig, serviceLimitConfiguration);
+    this.objectMapper = objectMapper;
     this.amazonClientProvider = amazonClientProvider;
     this.lambdaServiceConfig = lambdaServiceConfig;
     this.serviceLimitConfiguration = serviceLimitConfiguration;
-  }
-
-  @Override
-  public boolean supports(String providerName) {
-    return providerName.equalsIgnoreCase(AwsProvider.PROVIDER_NAME);
   }
 
   @Override
@@ -65,17 +64,17 @@ public class LambdaAgentProvider implements AgentProvider {
     NetflixAmazonCredentials netflixAmazonCredentials = (NetflixAmazonCredentials) credentials;
     if (netflixAmazonCredentials.getLambdaEnabled()) {
       agents.add(
-          new IamRoleCachingAgent(objectMapper, netflixAmazonCredentials, amazonClientProvider));
+              new IamRoleCustomCachingAgent(objectMapper, netflixAmazonCredentials, amazonClientProvider));
 
       for (AmazonCredentials.AWSRegion region : netflixAmazonCredentials.getRegions()) {
         agents.add(
-            new LambdaCachingAgent(
-                objectMapper,
-                amazonClientProvider,
-                netflixAmazonCredentials,
-                region.getName(),
-                lambdaServiceConfig,
-                serviceLimitConfiguration));
+                new LambdaCustomCachingAgent(
+                        objectMapper,
+                        amazonClientProvider,
+                        netflixAmazonCredentials,
+                        region.getName(),
+                        lambdaServiceConfig,
+                        serviceLimitConfiguration));
       }
     }
     return agents;

@@ -70,7 +70,7 @@ export function BasicSettingsForm( props: IFormikStageConfigInjectedProps ) {
   return( 
     <div>
       <FormikFormField
-        label="Account"
+        label="Account-Custom"
         name="account"
         input={(inputProps: IFormInputProps) => (
           <ReactSelectInput
@@ -82,7 +82,7 @@ export function BasicSettingsForm( props: IFormikStageConfigInjectedProps ) {
         )}
       />
       <FormikFormField
-        label="Region"
+        label="Region-Custom"
         name="region"
         onChange={onRegionChange}
         input={(inputProps: IFormInputProps) => (

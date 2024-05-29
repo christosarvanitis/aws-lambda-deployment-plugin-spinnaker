@@ -24,68 +24,57 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.aws.data.ArnUtils;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
-import com.netflix.spinnaker.clouddriver.lambda.service.config.LambdaServiceConfig;
-import com.netflix.spinnaker.kork.exceptions.SpinnakerException;
-import com.netflix.spinnaker.kork.plugins.api.spring.ExposeToApp;
+import com.netflix.spinnaker.clouddriver.lambda.deploy.ops.LambdaClientProvider;
+import com.netflix.spinnaker.config.LambdaServiceConfig;
 import lombok.extern.log4j.Log4j2;
-import org.springframework.stereotype.Component;
 
-import java.time.Clock;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 
 @Log4j2
-public class LambdaService {
-
-  private final AmazonClientProvider amazonClientProvider;
-  private final NetflixAmazonCredentials account;
-  private final String region;
-  private final int TIMEOUT_MINUTES;
-  private final int RETRIES;
-  private final Clock clock = Clock.systemDefaultZone();
+public class LambdaCustomService extends LambdaClientProvider {
   private final ObjectMapper mapper;
 
-  public LambdaService(
-      AmazonClientProvider amazonClientProvider,
-      NetflixAmazonCredentials account,
-      String region,
-      ObjectMapper mapper,
-      LambdaServiceConfig lambdaServiceConfig) {
-
-    this.amazonClientProvider = amazonClientProvider;
-    this.account = account;
-    this.region = region;
+  public LambdaCustomService(
+          AmazonClientProvider amazonClientProvider,
+          NetflixAmazonCredentials account,
+          String region,
+          ObjectMapper mapper,
+          LambdaServiceConfig lambdaServiceConfig) {
+    super(region, account);
+    super.operationsConfig = lambdaServiceConfig;
+    super.amazonClientProvider = amazonClientProvider;
     this.mapper = mapper;
-    this.TIMEOUT_MINUTES = lambdaServiceConfig.getRetry().getTimeout();
-    this.RETRIES = lambdaServiceConfig.getRetry().getRetries();
   }
 
   public List<Map<String, Object>> getAllFunctions() {
     List<FunctionConfiguration> functions = listAllFunctionConfigurations();
     List<Map<String, Object>> hydratedFunctionList =
-        Collections.synchronizedList(new ArrayList<>());
+            Collections.synchronizedList(new ArrayList<>());
     functions.stream()
-        .forEach(
-            f -> {
-              Map<String, Object> functionAttributes = new ConcurrentHashMap<>();
-              addBaseAttributes(functionAttributes, f.getFunctionName());
-              addRevisionsAttributes(functionAttributes, f.getFunctionName());
-              addAliasAndEventSourceMappingConfigurationAttributes(
-                  functionAttributes, f.getFunctionName());
-              addTargetGroupAttributes(functionAttributes, f.getFunctionName());
-              hydratedFunctionList.add(functionAttributes);
-            });
+            /* START - Adding custom Caching filter */
+            .filter(f -> f.getFunctionName() != null &&
+                    (f.getFunctionName().startsWith("something_")))
+            /* END - Adding custom Caching filter */
+            .forEach(
+                    f -> {
+                      Map<String, Object> functionAttributes = new ConcurrentHashMap<>();
+                      addBaseAttributes(functionAttributes, f.getFunctionName());
+                      addRevisionsAttributes(functionAttributes, f.getFunctionName());
+                      addAliasAndEventSourceMappingConfigurationAttributes(
+                              functionAttributes, f.getFunctionName());
+                      addTargetGroupAttributes(functionAttributes, f.getFunctionName());
+                      hydratedFunctionList.add(functionAttributes);
+                    });
 
     // if addBaseAttributes returned null, the name won't be included. There is a chance other
     // resources still have
     // associations to the deleted lambda
     return hydratedFunctionList.stream()
-        .filter(lf -> lf.get("functionName") != null)
-        .collect(Collectors.toList());
+            .filter(lf -> lf.get("functionName") != null)
+            .collect(Collectors.toList());
   }
 
   public Map<String, Object> getFunctionByName(String functionName) throws InterruptedException {
@@ -103,7 +92,7 @@ public class LambdaService {
   }
 
   public List<FunctionConfiguration> listAllFunctionConfigurations() {
-    AWSLambda lambda = amazonClientProvider.getAmazonLambda(account, region);
+    AWSLambda lambda = getLambdaClient();
     String nextMarker = null;
     List<FunctionConfiguration> lstFunction = new ArrayList<>();
     do {
@@ -112,12 +101,7 @@ public class LambdaService {
         listFunctionsRequest.setMarker(nextMarker);
       }
 
-      ListFunctionsResult listFunctionsResult =
-          retry(
-              "listFunctions",
-              () -> lambda.listFunctions(listFunctionsRequest),
-              RETRIES,
-              TIMEOUT_MINUTES);
+      ListFunctionsResult listFunctionsResult = lambda.listFunctions(listFunctionsRequest);
 
       if (listFunctionsResult == null) {
         break;
@@ -131,25 +115,20 @@ public class LambdaService {
   }
 
   private Void addBaseAttributes(Map<String, Object> functionAttributes, String functionName) {
-    GetFunctionResult result = getFunctionResult(functionName);
+    GetFunctionResult result =
+            getLambdaClient().getFunction(new GetFunctionRequest().withFunctionName(functionName));
     if (result == null) {
       return null;
     }
     Map<String, Object> attr = mapper.convertValue(result.getConfiguration(), Map.class);
-    attr.put("account", account.getName());
-    attr.put("region", region);
+    attr.put("account", getCredentials().getName());
+    attr.put("region", getRegion());
     attr.put("code", result.getCode());
     attr.put("tags", result.getTags());
     attr.put("concurrency", result.getConcurrency());
     attr.values().removeAll(Collections.singleton(null));
     functionAttributes.putAll(attr);
     return null;
-  }
-
-  private GetFunctionResult getFunctionResult(String functionName) {
-    AWSLambda lambda = amazonClientProvider.getAmazonLambda(account, region);
-    GetFunctionRequest request = new GetFunctionRequest().withFunctionName(functionName);
-    return retry("getFunctionRequest", () -> lambda.getFunction(request), RETRIES, TIMEOUT_MINUTES);
   }
 
   private Void addRevisionsAttributes(Map<String, Object> functionAttributes, String functionName) {
@@ -159,23 +138,19 @@ public class LambdaService {
   }
 
   private Map<String, String> listFunctionRevisions(String functionName) {
-    AWSLambda lambda = amazonClientProvider.getAmazonLambda(account, region);
+    AWSLambda lambda = getLambdaClient();
     String nextMarker = null;
     Map<String, String> listRevionIds = new HashMap<>();
     do {
       ListVersionsByFunctionRequest listVersionsByFunctionRequest =
-          new ListVersionsByFunctionRequest();
+              new ListVersionsByFunctionRequest();
       listVersionsByFunctionRequest.setFunctionName(functionName);
       if (nextMarker != null) {
         listVersionsByFunctionRequest.setMarker(nextMarker);
       }
 
       ListVersionsByFunctionResult listVersionsByFunctionResult =
-          retry(
-              "listVersionsByFunction",
-              () -> lambda.listVersionsByFunction(listVersionsByFunctionRequest),
-              RETRIES,
-              TIMEOUT_MINUTES);
+              lambda.listVersionsByFunction(listVersionsByFunctionRequest);
       if (listVersionsByFunctionResult == null) {
         return listRevionIds;
       }
@@ -189,16 +164,16 @@ public class LambdaService {
   }
 
   private Void addAliasAndEventSourceMappingConfigurationAttributes(
-      Map<String, Object> functionAttributes, String functionName) {
+          Map<String, Object> functionAttributes, String functionName) {
     List<AliasConfiguration> aliasConfigurationList = listAliasConfiguration(functionName);
     functionAttributes.put("aliasConfigurations", aliasConfigurationList);
 
     // TODO: should we also process these concurrently?
     List<EventSourceMappingConfiguration> eventSourceMappingConfigurationsList =
-        listEventSourceMappingConfiguration(functionName);
+            listEventSourceMappingConfiguration(functionName);
     for (AliasConfiguration currAlias : aliasConfigurationList) {
       List<EventSourceMappingConfiguration> currAliasEvents =
-          listEventSourceMappingConfiguration(currAlias.getAliasArn());
+              listEventSourceMappingConfiguration(currAlias.getAliasArn());
       eventSourceMappingConfigurationsList.addAll(currAliasEvents);
     }
     functionAttributes.put("eventSourceMappings", eventSourceMappingConfigurationsList);
@@ -206,7 +181,7 @@ public class LambdaService {
   }
 
   private List<AliasConfiguration> listAliasConfiguration(String functionName) {
-    AWSLambda lambda = amazonClientProvider.getAmazonLambda(account, region);
+    AWSLambda lambda = getLambdaClient();
     String nextMarker = null;
     List<AliasConfiguration> aliasConfigurations = new ArrayList<>();
     do {
@@ -216,12 +191,7 @@ public class LambdaService {
         listAliasesRequest.setMarker(nextMarker);
       }
 
-      ListAliasesResult listAliasesResult =
-          retry(
-              "listAliases",
-              () -> lambda.listAliases(listAliasesRequest),
-              RETRIES,
-              TIMEOUT_MINUTES);
+      ListAliasesResult listAliasesResult = lambda.listAliases(listAliasesRequest);
       if (listAliasesResult == null) {
         return aliasConfigurations;
       }
@@ -235,13 +205,13 @@ public class LambdaService {
   }
 
   private List<EventSourceMappingConfiguration> listEventSourceMappingConfiguration(
-      String functionName) {
+          String functionName) {
     List<EventSourceMappingConfiguration> eventSourceMappingConfigurations = new ArrayList<>();
-    AWSLambda lambda = amazonClientProvider.getAmazonLambda(account, region);
+    AWSLambda lambda = getLambdaClient();
     String nextMarker = null;
     do {
       ListEventSourceMappingsRequest listEventSourceMappingsRequest =
-          new ListEventSourceMappingsRequest();
+              new ListEventSourceMappingsRequest();
       listEventSourceMappingsRequest.setFunctionName(functionName);
 
       if (nextMarker != null) {
@@ -249,17 +219,13 @@ public class LambdaService {
       }
 
       ListEventSourceMappingsResult listEventSourceMappingsResult =
-          retry(
-              "listEventSourceMappings",
-              () -> lambda.listEventSourceMappings(listEventSourceMappingsRequest),
-              RETRIES,
-              TIMEOUT_MINUTES);
+              lambda.listEventSourceMappings(listEventSourceMappingsRequest);
       if (listEventSourceMappingsResult == null) {
         return eventSourceMappingConfigurations;
       }
 
       for (EventSourceMappingConfiguration x :
-          listEventSourceMappingsResult.getEventSourceMappings()) {
+              listEventSourceMappingsResult.getEventSourceMappings()) {
         eventSourceMappingConfigurations.add(x);
       }
       nextMarker = listEventSourceMappingsResult.getNextMarker();
@@ -270,83 +236,50 @@ public class LambdaService {
   }
 
   private Void addTargetGroupAttributes(
-      Map<String, Object> functionAttributes, String functionName) {
+          Map<String, Object> functionAttributes, String functionName) {
     List<String> targetGroups = getTargetGroupNames(functionName);
     functionAttributes.put("targetGroups", targetGroups);
     return null;
   }
 
+  private static final Predicate<Statement> isLambdaInvokeAction =
+          statement ->
+                  statement.getActions().stream()
+                          .anyMatch(action -> "lambda:InvokeFunction".equals(action.getActionName()));
+  private static final Predicate<Statement> isElbPrincipal =
+          statement ->
+                  statement.getPrincipals().stream()
+                          .anyMatch(
+                                  principal -> "elasticloadbalancing.amazonaws.com".equals(principal.getId()));
+
   private List<String> getTargetGroupNames(String functionName) {
-    AWSLambda lambda = amazonClientProvider.getAmazonLambda(account, region);
     List<String> targetGroupNames = new ArrayList<>();
     Predicate<Statement> isAllowStatement =
-        statement -> statement.getEffect().toString().equals(Statement.Effect.Allow.toString());
-    Predicate<Statement> isLambdaInvokeAction =
-        statement ->
-            statement.getActions().stream()
-                .anyMatch(action -> action.getActionName().equals("lambda:InvokeFunction"));
-    Predicate<Statement> isElbPrincipal =
-        statement ->
-            statement.getPrincipals().stream()
-                .anyMatch(
-                    principal -> principal.getId().equals("elasticloadbalancing.amazonaws.com"));
+            statement -> statement.getEffect().toString().equals(Statement.Effect.Allow.toString());
 
     try {
+      AWSLambda lambda = getLambdaClient();
       GetPolicyResult result =
-          retry(
-              "getPolicy",
-              () -> lambda.getPolicy(new GetPolicyRequest().withFunctionName(functionName)),
-              RETRIES,
-              TIMEOUT_MINUTES);
-      if (result == null) {
-        return targetGroupNames;
-      }
-      String json = result.getPolicy();
-      Policy policy = Policy.fromJson(json);
+              lambda.getPolicy(new GetPolicyRequest().withFunctionName(functionName));
+      Policy policy = Policy.fromJson(result.getPolicy());
 
       targetGroupNames =
-          policy.getStatements().stream()
-              .filter(isAllowStatement.and(isLambdaInvokeAction).and(isElbPrincipal))
-              .flatMap(statement -> statement.getConditions().stream())
-              .filter(
-                  condition ->
-                      condition.getType().equals("ArnLike")
-                          && condition.getConditionKey().equals("AWS:SourceArn"))
-              .flatMap(condition -> condition.getValues().stream())
-              .flatMap(value -> ArnUtils.extractTargetGroupName(value).stream())
-              .collect(Collectors.toList());
+              policy.getStatements().stream()
+                      .filter(isAllowStatement.and(isLambdaInvokeAction).and(isElbPrincipal))
+                      .flatMap(statement -> statement.getConditions().stream())
+                      .filter(
+                              condition ->
+                                      "ArnLike".equals(condition.getType())
+                                              && "AWS:SourceArn".equals(condition.getConditionKey()))
+                      .flatMap(condition -> condition.getValues().stream())
+                      .flatMap(value -> ArnUtils.extractTargetGroupName(value).stream())
+                      .collect(Collectors.toList());
 
-    } catch (ResourceNotFoundException e) {
-      // ignore the exception.
+    } catch (NullPointerException | ResourceNotFoundException e) {
+      // ignore the exception. Log it
+      log.info("Unable to find target group names for {}", functionName);
     }
 
     return targetGroupNames;
-  }
-
-  @Nullable
-  private <T> T retry(String requestName, Supplier<T> fn, int maxRetries, int timeoutMinutes) {
-    int retries = 0;
-    long startTime = clock.instant().toEpochMilli();
-    while (true) {
-      long currentTime = clock.instant().toEpochMilli();
-      if (currentTime > (startTime + TimeUnit.MINUTES.toMillis(timeoutMinutes))) {
-        throw new SpinnakerException(
-            "Failed to complete sdk method 'lambda:" + requestName + "' before the timeout.");
-      }
-      try {
-        return fn.get();
-      } catch (ResourceNotFoundException notFoundException) {
-        return null;
-      } catch (TooManyRequestsException | ServiceException e) {
-        if (retries >= (maxRetries - 1)) {
-          throw e;
-        }
-        if (e instanceof ServiceException) {
-          retries++;
-        }
-      } catch (Exception e) {
-        throw e;
-      }
-    }
   }
 }

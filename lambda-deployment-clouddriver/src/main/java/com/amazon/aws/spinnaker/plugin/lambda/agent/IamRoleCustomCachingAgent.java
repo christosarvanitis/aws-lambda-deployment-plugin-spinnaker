@@ -48,7 +48,7 @@ import com.netflix.spinnaker.clouddriver.lambda.provider.agent.IamTrustRelations
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class IamRoleCachingAgent implements CachingAgent, CustomScheduledAgent {
+public class IamRoleCustomCachingAgent implements CachingAgent, CustomScheduledAgent {
   private static final long POLL_INTERVAL_MILLIS = TimeUnit.MINUTES.toMillis(30);
   private static final long DEFAULT_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(5);
 
@@ -62,7 +62,7 @@ public class IamRoleCachingAgent implements CachingAgent, CustomScheduledAgent {
   private NetflixAmazonCredentials account;
   private String accountName;
 
-  public IamRoleCachingAgent(
+  public IamRoleCustomCachingAgent(
           ObjectMapper objectMapper,
           NetflixAmazonCredentials account,
           AmazonClientProvider amazonClientProvider) {

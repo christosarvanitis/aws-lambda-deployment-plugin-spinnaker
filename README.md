@@ -1,4 +1,49 @@
-## Spinnaker Plugin for AWS Lambda Deployment
+## Implementing Custom Logic via a plugin for core functionality in Spinnaker
+AWS Lambda plugin functionality has moved to Spinnaker OSS starting 1.32.x release. See https://github.com/spinnaker/orca/pull/4449
+
+This fork demonstrates how to implement custom logic via a plugin for core functionality in Spinnaker ie Lambda functionality.
+
+### Clouddriver (version 5.85.2 onwards)
+For the clouddriver part of the plugin we are extending LambdaAgentProvider which is the Primary Bean of the Lambda caching agents. 
+Any custom logic or modifications can be done in the Custom classes as done in [LambdaCustomService](./lambda-deployment-clouddriver/src/main/java/com/amazon/aws/spinnaker/plugin/lambda/LambdaCustomService.java#L57:L60).
+
+### Orca (version 8.36.2 onwards)
+For Orca stages is important that any change in the Stages wont break the existing stages defined in the end-users pipelines.
+To achieve that we will rely on [dynamic-stage-resolver](https://github.com/spinnaker/orca/blob/master/orca-core/src/main/java/com/netflix/spinnaker/orca/DynamicStageResolver.kt) 
+which makes migrating stages originally written directly into Orca to a plugin model easier.
+
+Lets take the example that we want to migrate the existing LambdaDeploymentStage to a new stage defined in this plugin.
+
+1. The stage type and aliases must be identical in both the existing stage and the plugin stage
+2. Implementing the Orca part of the plugin we need to define the bean dependency in order to make sure that the `dynamicStageResolver` Bean 
+is dependent on the plugin loaded stages. This is done [here](./lambda-deployment-orca/src/main/java/com/amazon/aws/spinnaker/plugin/lambda/LambdaSpringLoaderPlugin.java#L55:L64)
+3. We implement the new stage definition in the plugin.
+4. In order to override the stageDefinition from the plugin we add in the `orca-profile.yml` the following configuration:
+```yaml
+dynamic-stage-resolver:
+  enabled: true
+  Aws.LambdaDeploymentStage: com.amazon.aws.spinnaker.plugin.lambda.stages.LambdaDeploymentStage #Stage alias
+  lambdaDeployment: com.amazon.aws.spinnaker.plugin.lambda.stages.LambdaDeploymentStage #Stage Type
+```
+5. We enable the plugin in Orca profile as normally done for the plugin framework.
+
+### Deck 
+Not implemented 
+
+
+
+
+
+---
+
+*Original README.md content below*
+
+---
+
+# Bellow section is deprecated since Lambda plugin has moved to OSS
+
+
+## Spinnaker Plugin for AWS Lambda Deployment 
 
 This plugin provides support for AWS Lambda Deployment via Pipelines in Spinnaker.  This repository is in transition
 from its current distribution as a plugin into to the core Spinnaker project. Updates will be less frequent until
