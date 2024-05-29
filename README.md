@@ -27,15 +27,18 @@ dynamic-stage-resolver:
 ```
 5. We enable the plugin in Orca profile as normally done for the plugin framework.
 
-### Deck - Not implemented
+### Deck 
+Not implemented 
 
 
 
 
 
+---
 
+*Original README.md content below*
 
-
+---
 
 # Bellow section is deprecated since Lambda plugin has moved to OSS
 
