@@ -3,11 +3,11 @@ AWS Lambda plugin functionality has moved to Spinnaker OSS starting 1.32.x relea
 
 This fork demonstrates how to implement custom logic via a plugin for core functionality in Spinnaker ie Lambda functionality.
 
-### Clouddriver
+### Clouddriver (version 5.85.2 onwards)
 For the clouddriver part of the plugin we are extending LambdaAgentProvider which is the Primary Bean of the Lambda caching agents. 
 Any custom logic or modifications can be done in the Custom classes as done in [LambdaCustomService](./lambda-deployment-clouddriver/src/main/java/com/amazon/aws/spinnaker/plugin/lambda/LambdaCustomService.java#L57:L60).
 
-### Orca
+### Orca (version 8.36.2 onwards)
 For Orca stages is important that any change in the Stages wont break the existing stages defined in the end-users pipelines.
 To achieve that we will rely on [dynamic-stage-resolver](https://github.com/spinnaker/orca/blob/master/orca-core/src/main/java/com/netflix/spinnaker/orca/DynamicStageResolver.kt) 
 which makes migrating stages originally written directly into Orca to a plugin model easier.
