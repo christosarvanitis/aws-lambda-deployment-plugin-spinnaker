@@ -27,6 +27,7 @@ dynamic-stage-resolver:
 ```
 5. We enable the plugin in Orca profile as normally done for the plugin framework.
 
+
 ### Deck - Migrating OSS Lambda stages to Plugin Components
 In order to migrate the existing Lambda stages to the implementation of the plugin while keeping a backward compatibility:
 

@@ -1,6 +1,5 @@
 rootProject.name="aws-lambda-deployment-plugin-spinnaker"
 
-//include "lambda-deployment-deck" , "lambda-deployment-orca", "lambda-deployment-clouddriver"
 include "lambda-deployment-deck", "lambda-deployment-orca", "lambda-deployment-clouddriver"
 
 def setBuildFile(project) {
